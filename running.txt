@@ -1,0 +1,2 @@
+streamlit run chatting_test.py
+
