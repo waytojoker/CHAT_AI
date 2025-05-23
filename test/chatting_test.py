@@ -37,6 +37,8 @@ if prompt:
             model='deepseek-r1:1.5b',
             messages=[{"role": "user", "content": prompt}]
         )
+        response['message']['content'] = response['message']['content'].replace("<think>", "\n\n**思考：**\n")
+        response['message']['content'] = response['message']['content'].replace("</think>", "\n\n**回答：**\n")
         response['message']['content'] = preprocess_output(response['message']['content'])
         #添加ollama的回复
         st.session_state["message"].append({"role": "assistant", "content": response['message']['content']})
