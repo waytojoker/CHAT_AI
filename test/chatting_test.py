@@ -3,12 +3,19 @@ import ollama
 import streamlit as st
 import requests
 import json
+import re
 
 #ollama 客户端
 client = ollama.Client(host="http://127.0.0.1:11434")
 
 if "message" not in st.session_state:
     st.session_state['message'] = []
+
+def preprocess_output(output):
+    output = re.sub(r"\$\$(.*?)\$\$", r"$$\1$$", output)
+    if re.search(r"\\boxed\{.*?\}", output):
+        output = re.sub(r"(\\boxed\{.*?\})", r"\n\1\n", output)
+    return output
 
 st.title("智联未来")
 st.divider()#分割线
@@ -30,6 +37,7 @@ if prompt:
             model='deepseek-r1:1.5b',
             messages=[{"role": "user", "content": prompt}]
         )
+        response['message']['content'] = preprocess_output(response['message']['content'])
         #添加ollama的回复
         st.session_state["message"].append({"role": "assistant", "content": response['message']['content']})
         #显示ollama的回复
