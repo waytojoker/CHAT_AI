@@ -14,6 +14,7 @@ def process_wechat_article(url):
     #隐藏edge窗口，采用无头模式隐藏
     # 1. 创建配置对象
     edge_options = Options()
+    edge_options.add_argument('--edge-skip-compat-layer-relaunch')#忽略兼容性检查
     edge_options.add_argument("--window-position=-32000,-32000")  # 将窗口移到屏幕外
     # 2. 添加无头模式参数
     # edge_options.add_argument("--headless")  # 无头模式
