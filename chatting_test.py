@@ -2,6 +2,9 @@ import time
 import ollama
 import streamlit as st
 import re
+
+# 设置页面标题（标签页标题）
+st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖")
 maxHistoryMessages = 10
 
 from modules.xhs_prompt import (
@@ -134,6 +137,8 @@ with st.sidebar:
     if st.button("🗑️ 清空对话历史"):
         st.session_state["message"] = []
         st.rerun()
+        for message in st.session_state["message"]:
+            st.chat_message(message["role"]).markdown(message["content"])
 
 st.title("智联未来")
 st.divider()  # 分割线

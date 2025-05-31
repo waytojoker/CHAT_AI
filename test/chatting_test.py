@@ -15,6 +15,7 @@ def preprocess_output(output):
     output = re.sub(r"\$\$(.*?)\$\$", r"$$\1$$", output)
     if re.search(r"\\boxed\{.*?\}", output):
         output = re.sub(r"(\\boxed\{.*?\})", r"\n\1\n", output)
+    output = re.sub(r'PHPUnit', '', output)
     return output
 
 st.title("智联未来")
