@@ -4,6 +4,12 @@ import streamlit as st
 import re
 maxHistoryMessages = 10
 
+from modules.xhs_prompt import (
+    XHS_ROLE_CONFIG,
+    XHS_SCENE_CONFIG,
+    XHS_TASK_CONFIG,
+)
+
 # 初始化对话历史
 if "message" not in st.session_state:
     st.session_state["message"] = []
@@ -47,6 +53,14 @@ def get_system_prompt():
 with st.sidebar:
     st.header("⚙️ 配置设置")
 
+    # 优先显示模型选择和流式开关
+    st.subheader("🤖 模型与响应配置")
+    # 模型选择
+    models = ["deepseek-r1:7b", "deepseek-r1:1.5b"]  # 可以根据需要添加更多模型
+    selected_model = st.selectbox("选择模型", models)
+    # 流式开关
+    use_stream = st.checkbox("使用流式响应", value=True)
+
     # Prompt配置
     st.subheader("📝 Prompt配置")
 
@@ -74,6 +88,19 @@ with st.sidebar:
         help="明确AI助手需要完成的任务"
     )
 
+    template = st.selectbox("📋选择任务模板", ["自定义", "小红书文案生成", "公众号错字识别"])
+    if st.button("确定", key="template_confirm"):
+        if template == "小红书文案生成":
+            # 更新配置为小红书文案的设置
+            st.session_state['role_config'] = XHS_ROLE_CONFIG
+            st.session_state['scene_config'] = XHS_SCENE_CONFIG
+            st.session_state['task_config'] = XHS_TASK_CONFIG
+        elif template == "公众号错字识别":
+            # 更新配置为公众号错字检查的设置
+            st.session_state['role_config'] = "你是一个细心的校对助手，专门检查文本中的错别字。"
+            st.session_state['scene_config'] = "在一个仔细、专业的校对环境中"
+            st.session_state['task_config'] = "仔细检查提供的文本，找出所有错别字并提供改正建议"
+        st.rerun()
     st.divider()
 
     # 参数配置
@@ -117,11 +144,11 @@ with col2:
     st.caption(f"🌡️ Temperature: {st.session_state['temperature']}")
 
 prompt = st.chat_input("请输入你的问题：")
-# 是否使用流式的按钮
-use_stream = st.checkbox("使用流式响应", value=True)
-# 模型选择下拉框
-models = ["deepseek-r1:7b", "deepseek-r1:1.5b"]  # 可以根据需要添加更多模型
-selected_model = st.selectbox("选择模型", models)
+# # 是否使用流式的按钮
+# use_stream = st.checkbox("使用流式响应", value=True)
+# # 模型选择下拉框
+# models = ["deepseek-r1:7b", "deepseek-r1:1.5b"]  # 可以根据需要添加更多模型
+# selected_model = st.selectbox("选择模型", models)
 
 
 if prompt:
