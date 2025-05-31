@@ -134,11 +134,17 @@ if prompt:
 
     # 获取 Ollama 的回复
     with st.spinner("正在思考..."):
+        # 构建包含系统提示词的消息列表
+        system_message = {"role": "system", "content": get_system_prompt()}
+        user_messages = st.session_state["message"][-maxHistoryMessages:]
+        
+        # 将系统提示词放在最前面
+        messages = [system_message] + user_messages
+        
         # 获取 Ollama 的回复
         response = client.chat(
-            model='deepseek-r1:7b',
-            #messages=[{"role": "user", "content": prompt}],
-            messages=st.session_state["message"][-maxHistoryMessages:],
+            model=selected_model,  # 使用用户选择的模型
+            messages=messages,
             stream=use_stream,  # 根据按钮状态启用流式响应
             options = {
                 "temperature": st.session_state['temperature']
