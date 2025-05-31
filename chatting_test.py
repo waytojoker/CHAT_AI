@@ -12,6 +12,11 @@ from modules.xhs_prompt import (
     XHS_SCENE_CONFIG,
     XHS_TASK_CONFIG,
 )
+from modules.gzh_prompt import (
+    GZH_ROLE_CONFIG,
+    GZH_SCENE_CONFIG,
+    GZH_TASK_CONFIG,
+)
 
 # 初始化对话历史
 if "message" not in st.session_state:
@@ -100,9 +105,9 @@ with st.sidebar:
             st.session_state['task_config'] = XHS_TASK_CONFIG
         elif template == "公众号错字识别":
             # 更新配置为公众号错字检查的设置
-            st.session_state['role_config'] = "你是一个细心的校对助手，专门检查公众号文本中的错别字。"
-            st.session_state['scene_config'] = "用户会给一个公众号链接"
-            st.session_state['task_config'] = "识别公众号链接的文章内容，仔细检查提供的文本，找出所有错别字并提供改正建议"
+            st.session_state['role_config'] = GZH_ROLE_CONFIG
+            st.session_state['scene_config'] = GZH_SCENE_CONFIG
+            st.session_state['task_config'] = GZH_TASK_CONFIG
         st.rerun()
     st.divider()
 
