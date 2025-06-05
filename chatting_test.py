@@ -2,6 +2,8 @@ import time
 import ollama
 import streamlit as st
 import re
+# 导入模块file_processing
+from modules import file_processing
 
 # 设置页面标题（标签页标题）
 st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖")
@@ -38,6 +40,7 @@ if "task_config" not in st.session_state:
 if "temperature" not in st.session_state:
     st.session_state['temperature'] = 0.7
 
+
 def preprocess_output(output):
     # 替换 $$...$$ 包裹的公式为 st.latex 可识别的形式
     # 例如：$$\boxed{8}$$ → \boxed{8}
@@ -47,6 +50,8 @@ def preprocess_output(output):
     output = re.sub(r"\\boxed\{(.*?)\}", r"\1", output)
 
     return output
+
+
 def get_system_prompt():
     """构建系统提示词"""
     return f"""角色设定：{st.session_state['role_config']}
@@ -57,9 +62,19 @@ def get_system_prompt():
 
 请根据以上设定进行对话。"""
 
+#  文件处理
+uploaded_files = []
+file_content = ""
+
 # 侧边栏配置
 with st.sidebar:
     st.header("⚙️ 配置设置")
+
+    # 文件处理部分
+    st.subheader("☁️ 上传文件")
+    uploaded_files = st.file_uploader("上传文件", type=["docx", "pdf", "png", "jpg", "txt", "xlsx", "pptx"],
+                                      accept_multiple_files=True)
+    file_content = file_processing.get_file_content(uploaded_files)
 
     # 优先显示模型选择和流式开关
     st.subheader("🤖 模型与响应配置")
@@ -154,16 +169,16 @@ with col2:
     st.caption(f"🌡️ Temperature: {st.session_state['temperature']}")
 
 prompt = st.chat_input("请输入你的问题：")
-# # 是否使用流式的按钮
-# use_stream = st.checkbox("使用流式响应", value=True)
-# # 模型选择下拉框
-# models = ["deepseek-r1:7b", "deepseek-r1:1.5b"]  # 可以根据需要添加更多模型
-# selected_model = st.selectbox("选择模型", models)
-
 
 if prompt:
+
+    if file_content is not None:
+        prompt = file_content + prompt
     # 添加用户消息
     st.session_state["message"].append({"role": "user", "content": prompt})
+
+    uploaded_files = []
+    file_content = ""
 
     # 显示用户消息
     for message in st.session_state["message"]:
@@ -174,20 +189,21 @@ if prompt:
         # 构建包含系统提示词的消息列表
         system_message = {"role": "system", "content": get_system_prompt()}
         user_messages = st.session_state["message"][-maxHistoryMessages:]
-        
+
         # 将系统提示词放在最前面
         messages = [system_message] + user_messages
-        
+
         # 获取 Ollama 的回复
         response = client.chat(
             model=selected_model,  # 使用用户选择的模型
             messages=messages,
             stream=use_stream,  # 根据按钮状态启用流式响应
-            options = {
+            options={
                 "temperature": st.session_state['temperature']
             }
         )
 
+        # 流式
         if use_stream:
             # 创建一个空的占位符
             assistant_message_placeholder = st.empty()
@@ -201,7 +217,7 @@ if prompt:
                     # 追加新的内容
                     assistant_message += chunk["message"]["content"]
                     # 预处理输出
-                    assistant_message = preprocess_output(assistant_message)  
+                    assistant_message = preprocess_output(assistant_message)
                     # 逐步更新占位符内容
                     assistant_message_placeholder.markdown(assistant_message)
                     # 模拟生成速度
