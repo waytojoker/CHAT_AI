@@ -4,12 +4,6 @@ from . import db
 class User(db.Model):
     """
     用户模型，用于存储用户信息。
-    属性：
-        user_id (int): 用户的唯一标识符。
-        username (str): 用户的用户名。
-        password (str): 用户的密码。
-        email (str): 用户的电子邮件地址。
-        created_at (datetime): 用户创建的时间戳。
     """
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -26,18 +20,27 @@ class User(db.Model):
 class Conversation(db.Model):
     """
     对话模型，用于存储用户对话。
-    属性：
-        conversation_id (int): 对话的唯一标识符。
-        user_id (int): 用户的唯一标识符。
-        content (str): 对话的内容。
-        timestamp (datetime): 对话创建的时间戳。
     """
     __tablename__ = 'conversations'
     conversation_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+class Message(db.Model):
+    """
+    消息模型，用于存储对话中的消息记录。
+    """
+    __tablename__ = 'messages'
+    message_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.conversation_id'), nullable=False)
+    role = db.Column(db.String(10), nullable=False)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def __init__(self, user_id, content):
-        self.user_id = user_id
+    def __init__(self, conversation_id, role, content):
+        self.conversation_id = conversation_id
+        self.role = role
         self.content = content

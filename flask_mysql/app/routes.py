@@ -1,74 +1,74 @@
 from flask import request, jsonify
 from . import app, db
-from .models import User, Conversation
+from .models import User, Conversation, Message
 from flask_bcrypt import Bcrypt
 
 bcrypt = Bcrypt(app)
 
-#  注册、登录、保存会话
 # 用户注册接口
-
-
 @app.route('/register', methods=['POST'])
 def register():
-    """
-    用户注册接口。
-    接收 JSON 数据，包含用户名、密码和可选的邮箱地址。
-    如果用户名已存在，返回失败信息；否则创建新用户并返回用户ID。
-    """
-    # 从请求中获取 JSON 数据
     data = request.get_json()
-    username = data.get('username')  # 获取用户名
-    password = data.get('password')  # 获取密码
-    email = data.get('email')        # 获取邮箱地址（可选）
-    # 检查用户名是否已存在
+    username = data.get('username')
+    password = data.get('password')
+    email = data.get('email')
     if User.query.filter_by(username=username).first():
         return jsonify({'status': 'failure', 'message': '用户名已存在'}), 400
-    # 创建新用户
     user = User(username=username, password=password, email=email)
-    db.session.add(user)  # 将用户对象添加到会话
-    db.session.commit()   # 提交会话，保存到数据库
-
-    # 返回注册成功的信息
+    db.session.add(user)
+    db.session.commit()
     return jsonify({'status': 'success', 'user_id': user.user_id})
 
 # 用户登录接口
 @app.route('/login', methods=['POST'])
 def login():
-    """
-    用户登录接口。
-    接收 JSON 数据，包含用户名和密码。
-    如果用户名和密码匹配，返回用户ID；否则返回失败信息。
-    """
-    # 从请求中获取 JSON 数据
     data = request.get_json()
-    username = data.get('username')  # 获取用户名
-    password = data.get('password')  # 获取密码
-    # 查询用户
+    username = data.get('username')
+    password = data.get('password')
     user = User.query.filter_by(username=username, password=password).first()
     if user:
-        # 如果用户存在且密码匹配，返回用户ID
         return jsonify({'status': 'success', 'user_id': user.user_id})
     else:
-        # 如果用户名或密码错误，返回失败信息
         return jsonify({'status': 'failure', 'message': '用户名或密码错误'}), 401
 
-#  保存会话
+# 保存对话
 @app.route('/save_conversation', methods=['POST'])
 def save_conversation():
     data = request.get_json()
     user_id = data.get('user_id')
-    content = data.get('content')
-    if not user_id or not content:
+    conversations = data.get('conversations')
+    if not user_id or not conversations:
         return jsonify({'status': 'failure', 'message': '缺少必要参数'}), 400
-    conversation = Conversation(user_id=user_id, content=content)
+
+    # 创建新的对话会话
+    conversation = Conversation(user_id=user_id)
     db.session.add(conversation)
+    db.session.commit()
+
+    # 为每轮对话创建消息记录
+    for message in conversations:
+        role = message.get('role')
+        content = message.get('content')
+        if role and content:
+            msg = Message(conversation_id=conversation.conversation_id, role=role, content=content)
+            db.session.add(msg)
+
     db.session.commit()
     return jsonify({'status': 'success', 'conversation_id': conversation.conversation_id})
 
+# 获取对话
 @app.route('/get_conversations', methods=['GET'])
-def get_conversations(user_id):
+def get_conversations():
+    data = request.get_json()
+    user_id = data.get('user_id')
     conversations = Conversation.query.filter_by(user_id=user_id).order_by(Conversation.timestamp.desc()).all()
-    result = [{'conversation_id': c.conversation_id, 'content': c.content, 'timestamp': c.timestamp} for c in conversations]
+    result = []
+    for c in conversations:
+        messages = Message.query.filter_by(conversation_id=c.conversation_id).order_by(Message.timestamp.asc()).all()
+        conversation_content = [{'role': msg.role, 'content': msg.content, 'timestamp': msg.timestamp} for msg in messages]
+        result.append({
+            'conversation_id': c.conversation_id,
+            'content': conversation_content,
+            'timestamp': c.timestamp
+        })
     return jsonify({'status': 'success', 'conversations': result})
-
