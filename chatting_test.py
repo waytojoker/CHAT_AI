@@ -72,9 +72,18 @@ with st.sidebar:
 
     # 文件处理部分
     st.subheader("☁️ 上传文件")
-    uploaded_files = st.file_uploader("上传文件", type=["docx", "pdf", "png", "jpg", "txt", "xlsx", "pptx"],
-                                      accept_multiple_files=True)
-    file_content = file_processing.get_file_content(uploaded_files)
+    # 文件处理
+    if 'file_content' not in st.session_state:
+        st.session_state['file_content'] = ""
+    
+    # 侧边栏配置
+    with st.sidebar:
+        # 文件处理部分
+        uploaded_files = st.file_uploader("上传文件", type=["docx", "pdf", "png", "jpg", "txt", "xlsx", "pptx"],
+                                          accept_multiple_files=True)
+        if uploaded_files:
+            st.session_state['file_content'] = file_processing.get_file_content(uploaded_files)
+            st.success(f"已成功加载 {len(uploaded_files)} 个文件内容")
 
     # 优先显示模型选择和流式开关
     st.subheader("🤖 模型与响应配置")
@@ -174,20 +183,22 @@ if prompt:
 
     if file_content is not None:
         prompt = file_content + prompt
-    # 添加用户消息
+    # 构建带文件上下文的消息
+    full_prompt = f"{st.session_state.get('file_content', '')}\n\n用户提问：{prompt}"
+    
+    # 添加用户消息（仅显示提问部分）
     st.session_state["message"].append({"role": "user", "content": prompt})
-
-    uploaded_files = []
-    file_content = ""
-
-    # 显示用户消息
+    
+    # 显示消息时过滤文件内容
     for message in st.session_state["message"]:
-        st.chat_message(message["role"]).markdown(message["content"])
+        content = message["content"]
+        if message["role"] == "user" and "用户提问：" in content:
+            content = content.split("用户提问：")[-1]
+        st.chat_message(message["role"]).markdown(content)
 
-    # 获取 Ollama 的回复
+    # 获取 Ollama 的回复（使用完整prompt）
     with st.spinner("正在思考..."):
-        # 构建包含系统提示词的消息列表
-        system_message = {"role": "system", "content": get_system_prompt()}
+        system_message = {"role": "system", "content": get_system_prompt() + st.session_state.get('file_content', '')}
         user_messages = st.session_state["message"][-maxHistoryMessages:]
 
         # 将系统提示词放在最前面
