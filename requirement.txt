@@ -1,6 +1,11 @@
-streamlit
+Flask
+Flask-SQLAlchemy
+flask-bcrypt
 ollama
-selenium
-python-docx
+streamlit
+docx
 openpyxl
 python-pptx
+Pillow
+pytesseract
+PyPDF2
