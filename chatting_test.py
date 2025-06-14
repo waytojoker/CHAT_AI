@@ -4,7 +4,9 @@ import streamlit as st
 import re
 # 导入模块file_processing
 from modules import file_processing
-
+from modules.conversation_display import display_conversation
+from modules.history_module import show_conversation_history
+import requests
 # 设置页面标题（标签页标题）
 st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖")
 maxHistoryMessages = 10
@@ -40,16 +42,26 @@ if "task_config" not in st.session_state:
 if "temperature" not in st.session_state:
     st.session_state['temperature'] = 0.7
 
+# 初始化历史记录显示状态
+if "show_history" not in st.session_state:
+    st.session_state["show_history"] = False
 
-def preprocess_output(output):
-    # 替换 $$...$$ 包裹的公式为 st.latex 可识别的形式
-    # 例如：$$\boxed{8}$$ → \boxed{8}
-    output = output.replace("<think>", "\n\n**思考：**\n")
-    output = output.replace("</think>", "\n\n**回答：**\n")
-    output = re.sub(r"\$\$(.*?)\$\$", r"$$\1$$", output)
-    output = re.sub(r"\\boxed\{(.*?)\}", r"\1", output)
+# 历史记录和新建对话按钮
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("📖 历史记录", key="history_button"):
+        st.session_state["show_history"] = not st.session_state["show_history"]  # 切换历史记录显示状态
+with col2:
+    if st.button("📝 新建对话", key="new_conversation_button"):
+        response = requests.post(f"http://127.0.0.1:5000/new_conversation",  json={"user_id": 1})
+        if response.status_code == 200:
+            st.session_state["conversation_id"] = response.json()["conversation_id"]
+            st.session_state["message"] = []
+            st.session_state["show_history"] = False
+            st.rerun()
+        else:
+            st.error("新建对话失败")
 
-    return output
 
 
 def get_system_prompt():
@@ -166,81 +178,53 @@ with st.sidebar:
     if st.button("🗑️ 清空对话历史"):
         st.session_state["message"] = []
         st.rerun()
-        for message in st.session_state["message"]:
-            st.chat_message(message["role"]).markdown(message["content"])
 
-st.title("智联未来")
-st.divider()  # 分割线
 
 # 显示当前配置状态
 col1, col2 = st.columns([3, 1])
 with col2:
     st.caption(f"🌡️ Temperature: {st.session_state['temperature']}")
 
+st.title("智联未来")
+st.divider()  # 分割线
+
+conversation_id = None
+# 显示历史记录
+if(st.session_state["show_history"]==True):
+    conversation_id = show_conversation_history(user_id=1, show_history=True)
+    st.session_state["conversation_id"] = conversation_id
+    if(conversation_id):
+        # 显示先前消息
+        for message in st.session_state["message"]:
+            content = message["content"]
+            if message["role"] == "user" and "用户提问：" in content:
+                ontent = content.split("用户提问：")[-1]
+            st.chat_message(message["role"]).markdown(content)
+elif st.session_state["conversation_id"]:
+    conversation_id = st.session_state["conversation_id"]
+
 prompt = st.chat_input("请输入你的问题：")
 
+# 调用封装的对话展示逻辑
 if prompt:
-
-    if file_content is not None:
-        prompt = file_content + prompt
-    # 构建带文件上下文的消息
-    full_prompt = f"{st.session_state.get('file_content', '')}\n\n用户提问：{prompt}"
-    
-    # 添加用户消息（仅显示提问部分）
-    st.session_state["message"].append({"role": "user", "content": prompt})
-    
-    # 显示消息时过滤文件内容
-    for message in st.session_state["message"]:
-        content = message["content"]
-        if message["role"] == "user" and "用户提问：" in content:
-            content = content.split("用户提问：")[-1]
-        st.chat_message(message["role"]).markdown(content)
-
-    # 获取 Ollama 的回复（使用完整prompt）
-    with st.spinner("正在思考..."):
-        system_message = {"role": "system", "content": get_system_prompt() + st.session_state.get('file_content', '')}
-        user_messages = st.session_state["message"][-maxHistoryMessages:]
-
-        # 将系统提示词放在最前面
-        messages = [system_message] + user_messages
-
-        # 获取 Ollama 的回复
-        response = client.chat(
-            model=selected_model,  # 使用用户选择的模型
-            messages=messages,
-            stream=use_stream,  # 根据按钮状态启用流式响应
-            options={
-                "temperature": st.session_state['temperature']
-            }
+    if conversation_id:
+        display_conversation(
+            prompt=prompt,
+            file_content=st.session_state.get('file_content', ''),
+            client=client,
+            selected_model=selected_model,
+            use_stream=use_stream,
+            maxHistoryMessages=maxHistoryMessages,
+            conversation_id=conversation_id,
+            user_id=1,
+        )
+    else :
+        conversation_id = display_conversation(
+            prompt=prompt,
+            file_content=st.session_state.get('file_content', ''),
+            client=client,
+            selected_model=selected_model,
+            use_stream=use_stream,
+            maxHistoryMessages=maxHistoryMessages,
         )
 
-        # 流式
-        if use_stream:
-            # 创建一个空的占位符
-            assistant_message_placeholder = st.empty()
-
-            # 初始化一个空的回复内容
-            assistant_message = ""
-
-            # 模拟流式输出
-            for chunk in response:
-                if chunk.get("message"):
-                    # 追加新的内容
-                    assistant_message += chunk["message"]["content"]
-                    # 预处理输出
-                    assistant_message = preprocess_output(assistant_message)
-                    # 逐步更新占位符内容
-                    assistant_message_placeholder.markdown(assistant_message)
-                    # 模拟生成速度
-                    time.sleep(0.05)  # 可以根据需要调整
-
-            # 最终添加完整的回复到消息列表
-            st.session_state["message"].append({"role": "assistant", "content": assistant_message})
-        else:
-
-            response['message']['content'] = preprocess_output(response['message']['content'])  # 预处理输出
-
-            # 添加ollama的回复
-            st.session_state["message"].append({"role": "assistant", "content": response['message']['content']})
-            # 显示ollama的回复
-            st.chat_message("assistant").markdown(response['message']['content'])
