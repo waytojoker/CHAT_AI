@@ -42,27 +42,12 @@ if "task_config" not in st.session_state:
 if "temperature" not in st.session_state:
     st.session_state['temperature'] = 0.7
 
+if "conversation_id" not in st.session_state:
+    st.session_state['conversation_id'] = None
+
 # 初始化历史记录显示状态
 if "show_history" not in st.session_state:
     st.session_state["show_history"] = False
-
-# 历史记录和新建对话按钮
-col1, col2 = st.columns([1, 1])
-with col1:
-    if st.button("📖 历史记录", key="history_button"):
-        st.session_state["show_history"] = not st.session_state["show_history"]  # 切换历史记录显示状态
-with col2:
-    if st.button("📝 新建对话", key="new_conversation_button"):
-        response = requests.post(f"http://127.0.0.1:5000/new_conversation",  json={"user_id": 1})
-        if response.status_code == 200:
-            st.session_state["conversation_id"] = response.json()["conversation_id"]
-            st.session_state["message"] = []
-            st.session_state["show_history"] = False
-            st.rerun()
-        else:
-            st.error("新建对话失败")
-
-
 
 def get_system_prompt():
     """构建系统提示词"""
@@ -81,6 +66,22 @@ file_content = ""
 # 侧边栏配置
 with st.sidebar:
     st.header("⚙️ 配置设置")
+
+    # 历史记录和新建对话按钮
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("📖 历史记录", key="history_button"):
+            st.session_state["show_history"] = not st.session_state["show_history"]  # 切换历史记录显示状态
+    with col2:
+        if st.button("📝 新建对话", key="new_conversation_button"):
+            response = requests.post(f"http://127.0.0.1:5000/new_conversation", json={"user_id": 1})
+            if response.status_code == 200:
+                st.session_state["conversation_id"] = response.json()["conversation_id"]
+                st.session_state["message"] = []
+                st.session_state["show_history"] = False
+                st.rerun()
+            else:
+                st.error("新建对话失败")
 
     # 文件处理部分
     st.subheader("☁️ 上传文件")
@@ -198,7 +199,7 @@ if(st.session_state["show_history"]==True):
         for message in st.session_state["message"]:
             content = message["content"]
             if message["role"] == "user" and "用户提问：" in content:
-                ontent = content.split("用户提问：")[-1]
+                content = content.split("用户提问：")[-1]
             st.chat_message(message["role"]).markdown(content)
 elif st.session_state["conversation_id"]:
     conversation_id = st.session_state["conversation_id"]

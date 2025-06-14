@@ -1,2 +1,6 @@
 streamlit run chatting_test.py
 
+重要tips：
+mysql版本：8.0.34
+目前本地是需要运行run.py才能启动连数据库的服务
+
