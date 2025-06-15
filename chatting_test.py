@@ -90,7 +90,7 @@ with st.sidebar:
     # Ollama配置
     if st.session_state['selected_service'] == "Ollama":
         ollama_host = st.text_input("Ollama服务地址", value="http://127.0.0.1:11434")
-        ollama_models = ["deepseek-r1:7b", "deepseek-r1:1.5b", "llama3"]  # 包含原有两个deepseek模型
+        ollama_models = ["deepseek-r1:7b", "deepseek-r1:1.5b"]  # 包含原有两个deepseek模型
         selected_model = st.selectbox("选择模型", ollama_models)
 
         if st.button("连接Ollama服务"):
