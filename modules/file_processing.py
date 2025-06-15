@@ -108,17 +108,25 @@ def read_file(file):
         st.error(f"读取文件失败：{e}")
         return None
 
-def get_file_content(uploaded_files):
-    if uploaded_files is not None:
-        file_content = ""
-        for uploaded_file in uploaded_files:
-            # 读取文件内容
-            file_content += f"文件名：{uploaded_file.name}\n"
-            file_content += f"文件类型：{uploaded_file.type}\n"
-            file_content += read_file(uploaded_file)
 
-        return file_content
-    return None
+def get_file_content(uploaded_files):
+    if uploaded_files is None:
+        return None
+
+    # 若传入的是单个文件对象，将其转换为列表
+    if not isinstance(uploaded_files, list):
+        uploaded_files = [uploaded_files]
+
+    file_content = ""
+    for uploaded_file in uploaded_files:
+        # 读取文件内容
+        file_content += f"文件名：{uploaded_file.name}\n"
+        file_content += f"文件类型：{uploaded_file.type}\n"
+        content = read_file(uploaded_file)
+        if content:
+            file_content += content + "\n\n"  # 添加空行分隔不同文件
+
+    return file_content
 
 def main():
     st.title("文件上传测试")

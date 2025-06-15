@@ -3,7 +3,7 @@ Flask-SQLAlchemy
 flask-bcrypt
 ollama
 streamlit
-docx
+python-docx
 openpyxl
 python-pptx
 Pillow
