@@ -6,7 +6,7 @@ from collections import defaultdict, Counter
 import hashlib
 from datetime import datetime
 import streamlit as st
-from file_processing import read_file
+from modules.file_processing import read_file
 
 
 class DocumentProcessor:
