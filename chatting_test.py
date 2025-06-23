@@ -10,7 +10,19 @@ import requests
 from modules.model_service import create_model_service  # 导入模型服务工厂
 
 # 设置页面标题（标签页标题）
-st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖")
+st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖",
+initial_sidebar_state = "collapsed",  # 默认隐藏 或 "dexpanded"
+menu_items = None  # 隐藏自动导航1
+)
+# 隐藏自动导航2
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 maxHistoryMessages = 10
 
 from modules.xhs_prompt import (
@@ -105,6 +117,12 @@ with st.sidebar:
             st.session_state['file_content'] = file_processing.get_file_content(uploaded_files)
             st.success(f"已成功加载 {len(uploaded_files)} 个文件内容")
 
+    # ===== 新增的RAG增强功能入口 =====
+    st.subheader("🔍 RAG增强功能")
+    if st.button("🚀 开启RAG增强对话", key="rag_button"):
+        st.switch_page("pages/rag_main.py")  # 跳转到RAG页面
+    st.divider()  # 分隔线
+    
     # 优先显示模型选择和流式开关
     st.subheader("🤖 模型与响应配置")
     # 模型选择
