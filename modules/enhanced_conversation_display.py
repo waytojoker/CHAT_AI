@@ -2,7 +2,7 @@ import time
 import re
 import streamlit as st
 import requests
-from rag_module import enhance_query_with_rag
+from modules.file_processing import read_file
 
 
 def preprocess_output(output):
