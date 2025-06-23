@@ -72,23 +72,23 @@ def display_conversation(prompt, file_content, client, selected_model, use_strea
                 stream=use_stream,
                 options={"temperature": st.session_state['temperature']}
             )
-
-    if use_stream and selected_model != "ernie-speed-128k(无流式API)":
-        assistant_message = ""
-        assistant_message_placeholder = st.empty()
-        for chunk in response:
-            if chunk.get("message"):
-                assistant_message += chunk["message"]["content"]
-                assistant_message = preprocess_output(assistant_message)
-                assistant_message_placeholder.markdown(assistant_message)
-                time.sleep(0.05)
-        assistant_message = {"role": "assistant", "content": assistant_message}
-        st.session_state["message"].append(assistant_message)
-    else:
-        response['message']['content'] = preprocess_output(response['message']['content'])
-        assistant_message = {"role": "assistant", "content": response['message']['content']}
-        st.session_state["message"].append(assistant_message)
-        st.chat_message("assistant").markdown(response['message']['content'])
+    with st.spinner("正在回答..."):
+        if use_stream and selected_model != "ernie-speed-128k(无流式API)":
+            assistant_message = ""
+            assistant_message_placeholder = st.empty()
+            for chunk in response:
+                if chunk.get("message"):
+                    assistant_message += chunk["message"]["content"]
+                    assistant_message = preprocess_output(assistant_message)
+                    assistant_message_placeholder.markdown(assistant_message)
+                    time.sleep(0.05)
+            assistant_message = {"role": "assistant", "content": assistant_message}
+            st.session_state["message"].append(assistant_message)
+        else:
+            response['message']['content'] = preprocess_output(response['message']['content'])
+            assistant_message = {"role": "assistant", "content": response['message']['content']}
+            st.session_state["message"].append(assistant_message)
+            st.chat_message("assistant").markdown(response['message']['content'])
 
     # 调用 Flask 后端接口保存对话
     save_conversation([user_message, assistant_message],  user_id, conversation_id)
