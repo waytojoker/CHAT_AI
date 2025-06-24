@@ -3,6 +3,7 @@ import re
 import streamlit as st
 import requests
 from modules.file_processing import read_file
+from modules.rag_module import enhance_query_with_rag
 
 
 def preprocess_output(output):

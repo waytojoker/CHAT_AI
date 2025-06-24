@@ -252,7 +252,7 @@ class QianfanModelService(ModelService):
 class OllamaModelService(ModelService):
     """Ollama模型服务"""
 
-    def __init__(self, host: str = "http://127.0.0.1:11434", model: str = "llama3"):
+    def __init__(self, host: str = "http://127.0.0.1:11434", model: str = "deepseek-r1:7b"):
         """
         初始化Ollama模型服务
         :param host: Ollama服务器地址

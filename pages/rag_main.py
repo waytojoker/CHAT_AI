@@ -20,13 +20,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-st.set_page_config(
-    page_title="RAG增强对话系统",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="collapsed",  # 或 "dexpanded"
-    menu_items=None  # 隐藏自动导航1
-)
+
 
 
 # 初始化session state
@@ -93,7 +87,7 @@ def init_session_state():
         st.session_state["ollama_host"] = "http://127.0.0.1:11434"
 
     if "ollama_model" not in st.session_state:
-        st.session_state["ollama_model"] = "llama3"
+        st.session_state["ollama_model"] = "deepseek-r1:7b"
 
 
 def load_available_models():
