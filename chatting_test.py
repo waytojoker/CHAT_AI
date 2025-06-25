@@ -39,53 +39,54 @@ from modules.gzh_prompt import (
     GZH_SCENE_CONFIG,
     GZH_TASK_CONFIG,
 )
-
-# 初始化对话历史
-if "message" not in st.session_state:
-    st.session_state["message"] = []
-
 # Ollama 客户端
 client = ollama.Client(host="http://127.0.0.1:11434")
+def init():
+    # 初始化对话历史
+    if "message" not in st.session_state:
+        st.session_state["message"] = []
 
-# 初始化配置参数
-if "role_config" not in st.session_state:
-    st.session_state['role_config'] = "你是一个智能助手，能够回答各种问题并提供帮助。"
+    # 初始化配置参数
+    if "role_config" not in st.session_state:
+        st.session_state['role_config'] = "你是一个智能助手，能够回答各种问题并提供帮助。"
 
-if "scene_config" not in st.session_state:
-    st.session_state['scene_config'] = "在一个友好、专业的对话环境中"
+    if "scene_config" not in st.session_state:
+        st.session_state['scene_config'] = "在一个友好、专业的对话环境中"
 
-if "task_config" not in st.session_state:
-    st.session_state['task_config'] = "请根据用户的问题提供准确、有用的回答"
+    if "task_config" not in st.session_state:
+        st.session_state['task_config'] = "请根据用户的问题提供准确、有用的回答"
 
-if "temperature" not in st.session_state:
-    st.session_state['temperature'] = 0.7
+    if "temperature" not in st.session_state:
+        st.session_state['temperature'] = 0.7
 
-if "conversation_id" not in st.session_state:
-    st.session_state['conversation_id'] = None
+    if "conversation_id" not in st.session_state:
+        st.session_state['conversation_id'] = None
 
-# 初始化历史记录显示状态
-if "show_history" not in st.session_state:
-    st.session_state["show_history"] = False
+    # 初始化历史记录显示状态
+    if "show_history" not in st.session_state:
+        st.session_state["show_history"] = False
 
-#初始化选择模型
-if "selected_service" not in st.session_state:
-    st.session_state["selected_service"] = "Ollama"
+    # 初始化选择模型
+    if "selected_service" not in st.session_state:
+        st.session_state["selected_service"] = "Ollama"
 
-# 初始化MCP相关状态
-if "mcp_client" not in st.session_state:
-    st.session_state["mcp_client"] = MCPClient()
+    # 初始化MCP相关状态
+    if "mcp_client" not in st.session_state:
+        st.session_state["mcp_client"] = MCPClient()
 
-if "mcp_tool_caller" not in st.session_state:
-    st.session_state["mcp_tool_caller"] = MCPToolCaller(st.session_state["mcp_client"])
+    if "mcp_tool_caller" not in st.session_state:
+        st.session_state["mcp_tool_caller"] = MCPToolCaller(st.session_state["mcp_client"])
 
-if "enable_mcp" not in st.session_state:
-    st.session_state["enable_mcp"] = False
+    if "enable_mcp" not in st.session_state:
+        st.session_state["enable_mcp"] = False
 
-if "mcp_servers" not in st.session_state:
-    st.session_state["mcp_servers"] = []
+    if "mcp_servers" not in st.session_state:
+        st.session_state["mcp_servers"] = []
 
-if "auto_tool_mode" not in st.session_state:
-    st.session_state["auto_tool_mode"] = True
+    if "auto_tool_mode" not in st.session_state:
+        st.session_state["auto_tool_mode"] = True
+
+init()
 
 def get_system_prompt():
     """构建系统提示词"""
