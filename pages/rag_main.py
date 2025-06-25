@@ -231,8 +231,8 @@ def show_model_service_config():
                 model = st.selectbox(
                     "Ollama模型",
                     available_models,
-                    index=available_models.index(st.session_state.get("ollama_model", "llama3"))
-                    if st.session_state.get("ollama_model", "llama3") in available_models else 0
+                    index=available_models.index(st.session_state.get("ollama_model", "deepseek-r1:7b"))
+                    if st.session_state.get("ollama_model", "deepseek-r1:7b") in available_models else 0
                 )
                 st.session_state["ollama_model"] = model
                 st.session_state["selected_model"] = model  # 保持向后兼容
@@ -246,7 +246,7 @@ def show_model_service_config():
             try:
                 with st.spinner("正在测试连接..."):
                     service = create_model_service("ollama", host=host,
-                                                   model=st.session_state.get("ollama_model", "llama3"))
+                                                   model=st.session_state.get("ollama_model", "deepseek-r1:7b"))
                     # 发送测试消息
                     test_messages = [{"role": "user", "content": "你好，请回复'连接成功'"}]
                     response = service.chat(test_messages)
