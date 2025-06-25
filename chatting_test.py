@@ -8,6 +8,10 @@ from modules.conversation_display import display_conversation
 from modules.history_module import show_conversation_history
 import requests
 from modules.model_service import create_model_service  # 导入模型服务工厂
+# 导入MCP客户端相关模块
+from modules.mcp_client import MCPClient, MCPToolCaller, run_async_function, MCPServerConfig, MCPServer
+import asyncio
+import json
 
 # 设置页面标题（标签页标题）
 st.set_page_config(page_title="智联未来-智能助手", page_icon="🤖",
@@ -67,6 +71,22 @@ if "show_history" not in st.session_state:
 if "selected_service" not in st.session_state:
     st.session_state["selected_service"] = "Ollama"
 
+# 初始化MCP相关状态
+if "mcp_client" not in st.session_state:
+    st.session_state["mcp_client"] = MCPClient()
+
+if "mcp_tool_caller" not in st.session_state:
+    st.session_state["mcp_tool_caller"] = MCPToolCaller(st.session_state["mcp_client"])
+
+if "enable_mcp" not in st.session_state:
+    st.session_state["enable_mcp"] = False
+
+if "mcp_servers" not in st.session_state:
+    st.session_state["mcp_servers"] = []
+
+if "auto_tool_mode" not in st.session_state:
+    st.session_state["auto_tool_mode"] = True
+
 def get_system_prompt():
     """构建系统提示词"""
     return f"""角色设定：{st.session_state['role_config']}
@@ -121,6 +141,149 @@ with st.sidebar:
     st.subheader("🔍 RAG增强功能")
     if st.button("🚀 开启RAG增强对话", key="rag_button"):
         st.switch_page("pages/rag_main.py")  # 跳转到RAG页面
+    st.divider()  # 分隔线
+    
+    # ===== MCP工具调用功能 =====
+    st.subheader("🛠️ MCP工具调用")
+    st.session_state["enable_mcp"] = st.checkbox("启用MCP工具调用", value=st.session_state["enable_mcp"])
+    
+    if st.session_state["enable_mcp"]:
+        # 添加自主调用模式选择
+        st.subheader("🤖 调用模式")
+        auto_mode = st.radio(
+            "选择工具调用模式",
+            ["AI自主选择工具", "手动指定工具"],
+            index=0,
+            help="AI自主选择：模型会根据对话内容自动决定是否使用工具\n手动指定：需要使用特定语法手动调用工具"
+        )
+        st.session_state["auto_tool_mode"] = (auto_mode == "AI自主选择工具")
+    
+    if st.session_state["enable_mcp"]:
+        # MCP服务器管理
+        with st.expander("MCP服务器管理", expanded=False):
+            st.write("**从JSON配置导入MCP服务器**")
+            
+            # JSON配置输入对话框
+            json_config = st.text_area(
+                "粘贴MCP服务器配置JSON",
+                placeholder='''示例格式：
+{
+  "mcpServers": {
+    "knowledge-base": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "env": {}
+    },
+    "weather-service": {
+      "url": "https://api.weatherapi.com/v1",
+      "type": "http"
+    }
+  }
+}''',
+                height=200,
+                key="mcp_json_config"
+            )
+            
+            if st.button("导入配置文件", key="import_config_file"):
+                if json_config.strip():
+                    try:
+                        config = json.loads(json_config)
+                        
+                        if "mcpServers" in config:
+                            success_count = 0
+                            for name, server_config in config["mcpServers"].items():
+                                try:
+                                    # 根据配置类型处理
+                                    if "command" in server_config:
+                                        # 本地进程服务器
+                                        config_obj = MCPServerConfig(
+                                            name=name,
+                                            command=server_config["command"],
+                                            args=server_config.get("args", []),
+                                            env=server_config.get("env", {}),
+                                            server_type="process"
+                                        )
+                                    elif "url" in server_config:
+                                        # 远程服务器
+                                        server_type = server_config.get("type", "http")
+                                        config_obj = MCPServerConfig(
+                                            name=name,
+                                            url=server_config["url"],
+                                            server_type=server_type
+                                        )
+                                    else:
+                                        st.warning(f"跳过服务器 {name}：配置格式不支持")
+                                        continue
+                                    
+                                    # 创建服务器对象
+                                    server = MCPServer(
+                                        name=name,
+                                        config=config_obj,
+                                        tools=[]
+                                    )
+                                    
+                                    # 先将服务器添加到客户端
+                                    st.session_state["mcp_client"].servers[name] = server
+                                    
+                                    # 然后启动服务器
+                                    if run_async_function(st.session_state["mcp_client"].start_server(name)):
+                                        success_count += 1
+                                    else:
+                                        # 如果启动失败，从客户端中移除
+                                        if name in st.session_state["mcp_client"].servers:
+                                            del st.session_state["mcp_client"].servers[name]
+                                    
+                                except Exception as e:
+                                    st.warning(f"导入服务器 {name} 失败: {str(e)}")
+                            
+                            if success_count > 0:
+                                st.success(f"✅ 成功导入并启动 {success_count} 个MCP服务器")
+                                st.rerun()
+                            else:
+                                st.error("❌ 没有成功导入任何服务器")
+                        else:
+                            st.error("❌ JSON格式错误：缺少 'mcpServers' 字段")
+                    
+                    except json.JSONDecodeError as e:
+                        st.error(f"❌ JSON格式错误: {str(e)}")
+                    except Exception as e:
+                        st.error(f"❌ 配置文件处理失败: {str(e)}")
+                else:
+                    st.error("请输入JSON配置")
+            
+            # 显示现有服务器
+            servers = st.session_state["mcp_client"].get_servers()
+            if servers:
+                st.write("**已连接的服务器**")
+                for name, server in servers.items():
+                    col1, col2, col3 = st.columns([2, 2, 1])
+                    with col1:
+                        st.write(f"**{name}**")
+                        st.caption("MCP服务器")
+                    with col2:
+                        st.caption(f"类型: {server.config.server_type.upper()}")
+                        if server.config.url:
+                            st.caption(f"URL: {server.config.url}")
+                        if server.config.command:
+                            st.caption(f"命令: {server.config.command}")
+                        tools_count = len(server.tools) if server.tools else 0
+                        st.caption(f"可用工具: {tools_count}个")
+                    with col3:
+                        if st.button("停止", key=f"stop_{name}"):
+                            run_async_function(st.session_state["mcp_client"].stop_server(name))
+                            st.rerun()
+                
+                # 显示可用工具
+                all_tools = st.session_state["mcp_client"].get_available_tools()
+                if any(tools for tools in all_tools.values()):
+                    st.write("**可用工具**")
+                    for server_name, tools in all_tools.items():
+                        if tools:
+                            st.write(f"*{server_name}服务器:*")
+                            for tool in tools:
+                                st.write(f"  • `{tool.name}`: {tool.description}")
+                
+    
     st.divider()  # 分隔线
     
     # 优先显示模型选择和流式开关
