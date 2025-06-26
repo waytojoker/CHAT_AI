@@ -87,6 +87,41 @@ if "mcp_servers" not in st.session_state:
 if "auto_tool_mode" not in st.session_state:
     st.session_state["auto_tool_mode"] = True
 
+# 自动配置MCP服务器（如果还没有配置）
+if "mcp_auto_configured" not in st.session_state:
+    st.session_state["mcp_auto_configured"] = False
+
+if not st.session_state["mcp_auto_configured"]:
+    try:
+        # 自动配置knowledge-base服务器
+        config_obj = MCPServerConfig(
+            name="knowledge-base",
+            command="node",
+            args=["dist/index.js"],
+            env={},
+            server_type="process"
+        )
+        
+        server = MCPServer(
+            name="knowledge-base",
+            config=config_obj,
+            tools=[]
+        )
+        
+        # 添加到客户端
+        st.session_state["mcp_client"].servers["knowledge-base"] = server
+        
+        # 启动服务器
+        if run_async_function(st.session_state["mcp_client"].start_server("knowledge-base")):
+            st.session_state["mcp_auto_configured"] = True
+            print("✅ 自动配置并启动knowledge-base服务器成功")
+        else:
+            print("❌ 自动启动knowledge-base服务器失败")
+            
+    except Exception as e:
+        print(f"❌ 自动配置MCP服务器失败: {str(e)}")
+        st.session_state["mcp_auto_configured"] = True  # 避免重复尝试
+
 def get_system_prompt():
     """构建系统提示词"""
     return f"""角色设定：{st.session_state['role_config']}

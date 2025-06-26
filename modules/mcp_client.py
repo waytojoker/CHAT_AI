@@ -12,6 +12,7 @@ import streamlit as st
 import time
 import tempfile
 import shutil
+import platform
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -230,37 +231,91 @@ class MCPClient:
                 server.process.stdin.flush()
                 
                 # 读取响应，设置超时
-                import select
                 import time
+                import platform
                 
                 start_time = time.time()
                 timeout = 10.0  # 10秒超时
                 
                 while time.time() - start_time < timeout:
-                    # 检查是否有可读数据
-                    if select.select([server.process.stdout], [], [], 0.1)[0]:
-                        response_line = server.process.stdout.readline()
-                        if response_line:
-                            try:
-                                response = json.loads(response_line.strip())
-                                logger.info(f"收到进程响应: {response}")
-                                
-                                if "result" in response and "tools" in response["result"]:
-                                    tools = []
-                                    for tool_data in response["result"]["tools"]:
-                                        tool = MCPTool(
-                                            name=tool_data["name"],
-                                            description=tool_data["description"],
-                                            inputSchema=tool_data.get("inputSchema", {})
-                                        )
-                                        tools.append(tool)
-                                    return tools
-                                elif "error" in response:
-                                    logger.error(f"进程返回错误: {response['error']}")
-                                    break
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"无法解析进程响应: {response_line.strip()}, 错误: {e}")
-                                continue
+                    # 跨平台兼容的读取方式
+                    if platform.system() == "Windows":
+                        # Windows系统：使用简单的轮询方式
+                        try:
+                            # 尝试读取一行，设置非阻塞
+                            import threading
+                            import queue
+                            
+                            output_queue = queue.Queue()
+                            
+                            def read_line():
+                                try:
+                                    line = server.process.stdout.readline()
+                                    if line:
+                                        output_queue.put(line)
+                                except:
+                                    pass
+                            
+                            # 在后台线程中读取
+                            read_thread = threading.Thread(target=read_line, daemon=True)
+                            read_thread.start()
+                            read_thread.join(timeout=0.1)  # 最多等待0.1秒
+                            
+                            # 检查是否有输出
+                            if not output_queue.empty():
+                                response_line = output_queue.get_nowait()
+                                try:
+                                    response = json.loads(response_line.strip())
+                                    logger.info(f"收到进程响应: {response}")
+                                    
+                                    if "result" in response and "tools" in response["result"]:
+                                        tools = []
+                                        for tool_data in response["result"]["tools"]:
+                                            tool = MCPTool(
+                                                name=tool_data["name"],
+                                                description=tool_data["description"],
+                                                inputSchema=tool_data.get("inputSchema", {})
+                                            )
+                                            tools.append(tool)
+                                        return tools
+                                    elif "error" in response:
+                                        logger.error(f"进程返回错误: {response['error']}")
+                                        break
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"无法解析进程响应: {response_line.strip()}, 错误: {e}")
+                                    continue
+                        except Exception as e:
+                            logger.warning(f"Windows读取失败: {str(e)}")
+                        
+                        # 简单等待
+                        time.sleep(0.1)
+                        
+                    else:
+                        # Unix/Linux系统：使用select
+                        import select
+                        if select.select([server.process.stdout], [], [], 0.1)[0]:
+                            response_line = server.process.stdout.readline()
+                            if response_line:
+                                try:
+                                    response = json.loads(response_line.strip())
+                                    logger.info(f"收到进程响应: {response}")
+                                    
+                                    if "result" in response and "tools" in response["result"]:
+                                        tools = []
+                                        for tool_data in response["result"]["tools"]:
+                                            tool = MCPTool(
+                                                name=tool_data["name"],
+                                                description=tool_data["description"],
+                                                inputSchema=tool_data.get("inputSchema", {})
+                                            )
+                                            tools.append(tool)
+                                        return tools
+                                    elif "error" in response:
+                                        logger.error(f"进程返回错误: {response['error']}")
+                                        break
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"无法解析进程响应: {response_line.strip()}, 错误: {e}")
+                                    continue
                     
                     # 检查进程是否还在运行
                     if server.process.poll() is not None:
@@ -420,28 +475,73 @@ class MCPClient:
                 server.process.stdin.flush()
                 
                 # 读取响应，设置超时
-                import select
                 import time
+                import platform
                 
                 start_time = time.time()
                 timeout = 30.0  # 30秒超时
                 
                 while time.time() - start_time < timeout:
-                    # 检查是否有可读数据
-                    if select.select([server.process.stdout], [], [], 0.1)[0]:
-                        response_line = server.process.stdout.readline()
-                        if response_line:
-                            try:
-                                response = json.loads(response_line.strip())
-                                logger.info(f"收到工具调用响应: {response}")
-                                
-                                if "result" in response:
-                                    return response["result"]
-                                elif "error" in response:
-                                    raise Exception(f"工具调用错误: {response['error']}")
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"无法解析工具调用响应: {response_line.strip()}, 错误: {e}")
-                                continue
+                    # 跨平台兼容的读取方式
+                    if platform.system() == "Windows":
+                        # Windows系统：使用简单的轮询方式
+                        try:
+                            # 尝试读取一行，设置非阻塞
+                            import threading
+                            import queue
+                            
+                            output_queue = queue.Queue()
+                            
+                            def read_line():
+                                try:
+                                    line = server.process.stdout.readline()
+                                    if line:
+                                        output_queue.put(line)
+                                except:
+                                    pass
+                            
+                            # 在后台线程中读取
+                            read_thread = threading.Thread(target=read_line, daemon=True)
+                            read_thread.start()
+                            read_thread.join(timeout=0.1)  # 最多等待0.1秒
+                            
+                            # 检查是否有输出
+                            if not output_queue.empty():
+                                response_line = output_queue.get_nowait()
+                                try:
+                                    response = json.loads(response_line.strip())
+                                    logger.info(f"收到工具调用响应: {response}")
+                                    
+                                    if "result" in response:
+                                        return response["result"]
+                                    elif "error" in response:
+                                        raise Exception(f"工具调用错误: {response['error']}")
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"无法解析工具调用响应: {response_line.strip()}, 错误: {e}")
+                                    continue
+                        except Exception as e:
+                            logger.warning(f"Windows读取失败: {str(e)}")
+                        
+                        # 简单等待
+                        time.sleep(0.1)
+                        
+                    else:
+                        # Unix/Linux系统：使用select
+                        import select
+                        if select.select([server.process.stdout], [], [], 0.1)[0]:
+                            response_line = server.process.stdout.readline()
+                            if response_line:
+                                try:
+                                    response = json.loads(response_line.strip())
+                                    logger.info(f"收到工具调用响应: {response}")
+                                    
+                                    if "result" in response:
+                                        return response["result"]
+                                    elif "error" in response:
+                                        raise Exception(f"工具调用错误: {response['error']}")
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"无法解析工具调用响应: {response_line.strip()}, 错误: {e}")
+                                    continue
                     
                     # 检查进程是否还在运行
                     if server.process.poll() is not None:
@@ -799,9 +899,16 @@ class MCPToolCaller:
 {"tool_call": {"server": "服务器名", "tool": "工具名", "arguments": {"参数名": "参数值"}}}
 
 例如：
-{"tool_call": {"server": "knowledge-base", "tool": "search", "arguments": {"query": "人工智能发展趋势"}}}
+{"tool_call": {"server": "knowledge-base", "tool": "query_knowledge_base", "arguments": {"question": "人工智能发展趋势", "max_results": 5}}}
+{"tool_call": {"server": "knowledge-base", "tool": "get_stats", "arguments": {}}}
+{"tool_call": {"server": "knowledge-base", "tool": "list_documents", "arguments": {}}}
 
-注意：只有当确实需要外部信息或工具帮助时才调用工具。
+重要提示：
+1. 当用户询问知识库相关内容时，请调用 query_knowledge_base 工具
+2. 当用户询问统计信息时，请调用 get_stats 工具  
+3. 当用户询问文档列表时，请调用 list_documents 工具
+4. 只有当确实需要外部信息或工具帮助时才调用工具
+5. 调用工具后，请基于工具返回的结果来回答用户问题
 """
         
         return description
