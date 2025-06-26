@@ -176,6 +176,7 @@ with st.sidebar:
     # ===== 新增的RAG增强功能入口 =====
     st.subheader("🔍 RAG增强功能")
     if st.button("🚀 开启RAG增强对话", key="rag_button"):
+        st.session_state.clear()
         st.switch_page("pages/rag_main.py")  # 跳转到RAG页面
     st.divider()  # 分隔线
     

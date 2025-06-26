@@ -389,7 +389,8 @@ def main():
         st.header("⚙️ 系统设置")
         # 返回按钮
         if st.button("← 返回主界面"):
-                st.switch_page("chatting_test.py")  # 跳回主页面
+            st.session_state.clear()
+            st.switch_page("chatting_test.py")  # 跳回主页面
         # 模型服务配置
         show_model_service_config()
 
