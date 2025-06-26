@@ -444,7 +444,11 @@ def main():
     # 主界面标签页
     tab1, tab2, tab3, tab4 = st.tabs(["💬 对话", "📚 文档管理", "🧪 系统测试", "📊 状态监控"])
 
+
+
+
     with tab1:
+
         # 对话界面
         st.header("智能对话")
 
@@ -462,12 +466,16 @@ def main():
         with col3:
             st.metric("🔑 关键词数量", stats['total_keywords'])
         # 显示对话历史
-        for message in st.session_state.get("message", []):
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        # for message in st.session_state.get("message", []):
+        #     with st.chat_message(message["role"]):
+        #         st.markdown(message["content"])
 
-        # 对话输入
-        if test_query := st.chat_input("输入你的问题..."):
+        if st.button("🗑️ 清空对话", type="secondary"):
+            st.session_state["message"] = []
+            st.rerun()
+
+        test_query = st.chat_input("输入你的问题...")
+        if test_query:
             try:
                 # 搜索相关文档
                 relevant_chunks = rag_system.search_documents(test_query, top_k=3)
@@ -478,16 +486,17 @@ def main():
 
                     # 构建消息
                     # 添加用户消息（仅显示提问部分）
-                    user_message = {"role": "user", "content": enhanced_prompt}
+                    user_message = {"role": "user", "content": enhanced_prompt,"original_question": test_query}
                     st.session_state["message"].append(user_message)
 
-                    # 显示先前消息
+                    #显示先前消息
                     for message in st.session_state["message"]:
-                        content = message["content"]
-                        if message["role"] == "user" and "用户提问：" in content:
+                        if message["role"] == "user":
+                            content = message["original_question"]
                             content = content.split("用户提问：")[-1]
+                        else:
+                            content = message["content"]
                         st.chat_message(message["role"]).markdown(content)
-
 
                     # 使用模型服务生成回答
                     response = st.session_state["model_service"].chat(st.session_state["message"])
@@ -518,15 +527,10 @@ def main():
                 import traceback
                 st.error(f"详细错误: {traceback.format_exc()}")
 
-        # 清空对话按钮
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("🗑️ 清空对话", type="secondary"):
-                st.session_state["message"] = []
-                st.rerun()
-
-
     with tab2:
+
+
+
         # 文档管理界面
         st.header("私有文档管理")
         show_rag_management()
@@ -567,6 +571,7 @@ def main():
                 st.info("参数已更新，建议重新处理文档以获得最佳效果")
 
     with tab3:
+
         # 系统测试界面
         st.header("系统功能测试")
         test_rag_system()
@@ -576,6 +581,7 @@ def main():
             show_rag_debug_info()
 
     with tab4:
+
         # 状态监控界面
         st.header("系统状态监控")
         show_system_status()
