@@ -7,7 +7,8 @@ import hashlib
 from datetime import datetime
 import streamlit as st
 from modules.file_processing import read_file
-
+from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class DocumentProcessor:
     """文档处理类：负责文档分块、关键词提取和索引构建"""
@@ -30,41 +31,42 @@ class DocumentProcessor:
         return stop_words
 
     def split_document(self, content, filename):
-        """将文档分割成块"""
+        """
+        使用 langchain 的 RecursiveCharacterTextSplitter 分割文档
+        :param content: 文档内容
+        :param filename: 文件名
+        :return: 分割后的块列表
+        """
         if not content or len(content.strip()) == 0:
             return []
 
-        chunks = []
-        start = 0
-        chunk_id = 0
+        # 将字符串内容包装成 Document 对象
+        document = Document(page_content=content)
 
-        while start < len(content):
-            end = min(start + self.chunk_size, len(content))
+        # 初始化 RecursiveCharacterTextSplitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=200,
+            chunk_overlap=100,
+            separators=["。", "！", "？", "；", "：", "\n"],  # 增加其他分隔符
+            keep_separator='end'
+        )
 
-            # 尝试在句号、感叹号、问号处断句
-            if end < len(content):
-                for i in range(end, max(start + self.chunk_size // 2, end - 100), -1):
-                    if content[i] in '。！？\n':
-                        end = i + 1
-                        break
+        # 使用 langchain 的 RecursiveCharacterTextSplitter 分割内容
+        chunks = text_splitter.split_documents([document])
 
-            chunk_content = content[start:end].strip()
+        # 构造返回的块列表
+        result_chunks = []
+        for chunk_id, chunk in enumerate(chunks):
+            chunk_content = chunk.page_content.strip()
             if chunk_content:
-                chunk = {
+                result_chunks.append({
                     'chunk_id': f"{filename}_{chunk_id}",
                     'filename': filename,
                     'content': chunk_content,
-                    'start_pos': start,
-                    'end_pos': end,
-                    'keywords': self.extract_keywords(chunk_content)
-                }
-                chunks.append(chunk)
-                chunk_id += 1
+                    'keywords': self.extract_keywords(chunk_content)  # 假设有一个提取关键词的方法
+                })
 
-            # 计算下一个块的起始位置（考虑重叠）
-            start = max(start + 1, end - self.overlap)
-
-        return chunks
+        return result_chunks
 
     def extract_keywords(self, text):
         """从文本中提取关键词"""

@@ -1,14 +1,12 @@
 import streamlit as st
-import ollama
 from modules.rag_module import show_rag_management, RAGSystem
 from modules.enhanced_conversation_display import (
     display_rag_enhanced_conversation,
-    show_rag_settings,
     show_rag_debug_info
 )
 from modules.file_processing import get_file_content
 from modules.history_module import show_conversation_history
-from modules.model_service import create_model_service, ModelService, QianfanModelService, OllamaModelService
+from modules.model_service import create_model_service, ModelService, QianfanModelService
 import os
 
 # 页面配置
@@ -66,13 +64,13 @@ def init_session_state():
         st.session_state["selected_model"] = ""
 
     if "use_stream" not in st.session_state:
-        st.session_state["use_stream"] = True
+        st.session_state["use_stream"] = False
 
     if "maxHistoryMessages" not in st.session_state:
         st.session_state["maxHistoryMessages"] = 10
 
     if "model_service_type" not in st.session_state:
-        st.session_state["model_service_type"] = "ollama"
+        st.session_state["model_service_type"] = "qianfan"
 
     if "model_service" not in st.session_state:
         st.session_state["model_service"] = None
@@ -83,29 +81,11 @@ def init_session_state():
     if "qianfan_model" not in st.session_state:
         st.session_state["qianfan_model"] = "ernie-4.5-turbo-vl-32k"
 
-    if "ollama_host" not in st.session_state:
-        st.session_state["ollama_host"] = "http://127.0.0.1:11434"
-
-    if "ollama_model" not in st.session_state:
-        st.session_state["ollama_model"] = "deepseek-r1:7b"
-
-
-def load_available_models():
-    """加载可用的Ollama模型"""
-    try:
-        client = ollama.Client()
-        models = client.list()
-        return [model['name'] for model in models['models']]
-    except Exception as e:
-        st.error(f"获取模型列表失败: {e}")
-        return []
-
 
 def init_model_service():
     """初始化模型服务"""
     try:
         service_type = st.session_state["model_service_type"]
-
         if service_type == "qianfan":
             # 初始化千帆服务
             authorization = st.session_state["qianfan_authorization"]
@@ -121,16 +101,7 @@ def init_model_service():
                 model=model
             )
 
-        elif service_type == "ollama":
-            # 初始化Ollama服务
-            host = st.session_state["ollama_host"]
-            model = st.session_state["ollama_model"]
 
-            st.session_state["model_service"] = create_model_service(
-                "ollama",
-                host=host,
-                model=model
-            )
 
         return st.session_state["model_service"]
 
@@ -142,14 +113,9 @@ def init_model_service():
 def show_model_service_config():
     """显示模型服务配置"""
     st.subheader("🤖 模型服务配置")
-
+    st.subheader("模型服务:qianfan")
     # 服务类型选择
-    service_type = st.selectbox(
-        "选择模型服务",
-        ["qianfan", "ollama"],
-        index=0 if st.session_state["model_service_type"] == "qianfan" else 1,
-        help="选择要使用的模型服务类型"
-    )
+    service_type = "qianfan"
 
     if service_type != st.session_state["model_service_type"]:
         st.session_state["model_service_type"] = service_type
@@ -213,50 +179,6 @@ def show_model_service_config():
             else:
                 st.warning("请先输入授权令牌")
 
-    elif service_type == "ollama":
-        # Ollama配置
-        st.write("**Ollama配置**")
-
-        host = st.text_input(
-            "Ollama服务器地址",
-            value=st.session_state.get("ollama_host", "http://127.0.0.1:11434"),
-            help="Ollama服务器的地址和端口"
-        )
-        st.session_state["ollama_host"] = host
-
-        # 获取可用模型
-        try:
-            available_models = load_available_models()
-            if available_models:
-                model = st.selectbox(
-                    "Ollama模型",
-                    available_models,
-                    index=available_models.index(st.session_state.get("ollama_model", "llama3"))
-                    if st.session_state.get("ollama_model", "llama3") in available_models else 0
-                )
-                st.session_state["ollama_model"] = model
-                st.session_state["selected_model"] = model  # 保持向后兼容
-            else:
-                st.error("未找到可用模型，请确保Ollama服务正在运行")
-        except Exception as e:
-            st.error(f"连接Ollama服务失败: {e}")
-
-        # 测试连接
-        if st.button("测试Ollama连接"):
-            try:
-                with st.spinner("正在测试连接..."):
-                    service = create_model_service("ollama", host=host,
-                                                   model=st.session_state.get("ollama_model", "llama3"))
-                    # 发送测试消息
-                    test_messages = [{"role": "user", "content": "你好，请回复'连接成功'"}]
-                    response = service.chat(test_messages)
-
-                    st.success("✅ Ollama服务连接成功！")
-                    st.session_state["model_service"] = service
-            except Exception as e:
-                st.error(f"❌ Ollama服务连接失败: {e}")
-
-
 def test_rag_system():
     """测试RAG系统功能"""
     st.subheader("🧪 RAG系统测试")
@@ -306,7 +228,7 @@ def test_rag_system():
     # 测试模型服务与RAG集成
     st.subheader("🤖 模型服务与RAG集成测试")
 
-    if st.session_state.get("model_service") and test_query:
+    if st.session_state["model_service"] and test_query:
         if st.button("测试RAG增强回答"):
             with st.spinner("正在生成RAG增强回答..."):
                 try:
@@ -320,8 +242,9 @@ def test_rag_system():
                         # 构建消息
                         messages = [{"role": "user", "content": enhanced_prompt}]
 
-                        # 使用模型服务生成回答
-                        response = st.session_state["model_service"].chat(messages)
+                        with st.spinner("正在思考..."):
+                            # 使用模型服务生成回答
+                            response = st.session_state["model_service"].chat(messages)
 
                         if "choices" in response and len(response["choices"]) > 0:
                             answer = response["choices"][0]["message"]["content"]
@@ -357,16 +280,12 @@ def show_system_status():
         st.write("**模型服务状态:**")
         service_status = {
             "服务类型": st.session_state.get("model_service_type", "未设置"),
-            "服务状态": "已连接" if st.session_state.get("model_service") else "未连接",
+            "服务状态": "已连接" if st.session_state["model_service"] else "未连接",
         }
 
         if st.session_state["model_service_type"] == "qianfan":
             service_status["模型"] = st.session_state.get("qianfan_model", "未设置")
             service_status["授权状态"] = "已设置" if st.session_state.get("qianfan_authorization") else "未设置"
-
-        elif st.session_state["model_service_type"] == "ollama":
-            service_status["主机"] = st.session_state.get("ollama_host", "未设置")
-            service_status["模型"] = st.session_state.get("ollama_model", "未设置")
 
         st.json(service_status)
 
@@ -395,18 +314,18 @@ def show_system_status():
         "消息数量": len(st.session_state.get("message", [])),
         "当前对话ID": st.session_state.get("current_conversation", 1),
         "温度设置": st.session_state.get("temperature", 0.7),
-        "流式输出": st.session_state.get("use_stream", True)
+        "流式输出": st.session_state["use_stream"]
     })
 
 
-def chat_with_model_service(prompt, file_content=None):
+def chat_with_model_service(prompt):
     """使用模型服务进行对话"""
-    if not st.session_state.get("model_service"):
+    if not st.session_state["model_service"]:
         st.error("请先配置并连接模型服务")
         return None
 
+    # RAG增强查询
     try:
-        # RAG增强查询
         use_rag = st.session_state.get('use_rag', False)
         original_prompt = prompt
         relevant_chunks = []
@@ -421,8 +340,6 @@ def chat_with_model_service(prompt, file_content=None):
                     st.info(f"🔍 找到 {len(relevant_chunks)} 个相关文档片段")
 
         # 处理文件内容
-        if file_content:
-            prompt = f"{file_content}\n\n{prompt}"
 
         # 构建系统提示词
         system_prompt = f"""角色设定：{st.session_state['role_config']}
@@ -447,58 +364,10 @@ def chat_with_model_service(prompt, file_content=None):
             response = st.session_state["model_service"].chat(
                 messages,
                 temperature=st.session_state.get("temperature", 0.7),
-                stream=st.session_state.get("use_stream", False)
+                stream=st.session_state["use_stream"]
             )
 
-            if st.session_state.get("use_stream", False):
-                # 千帆流式响应处理
-                if "choices" in response and len(response["choices"]) > 0:
-                    return response["choices"][0]["message"]["content"]
-                else:
-                    st.error("模型响应格式错误")
-                    return None
-            else:
-                if "choices" in response and len(response["choices"]) > 0:
-                    return response["choices"][0]["message"]["content"]
-                else:
-                    st.error("模型响应格式错误")
-                    return None
 
-        elif st.session_state["model_service_type"] == "ollama":
-            # 对于Ollama，使用模型服务的chat方法
-            if st.session_state.get("use_stream", False):
-                # 流式输出
-                assistant_message = ""
-                assistant_message_placeholder = st.empty()
-
-                # 调用ollama客户端进行流式输出
-                import ollama
-                client = ollama.Client(host=st.session_state["ollama_host"])
-
-                response = client.chat(
-                    model=st.session_state["ollama_model"],
-                    messages=messages,
-                    stream=True,
-                    options={"temperature": st.session_state.get("temperature", 0.7)}
-                )
-
-                for chunk in response:
-                    if chunk.get("message"):
-                        assistant_message += chunk["message"]["content"]
-                        assistant_message_placeholder.markdown(assistant_message)
-
-                return assistant_message
-            else:
-                response = st.session_state["model_service"].chat(
-                    messages,
-                    temperature=st.session_state.get("temperature", 0.7),
-                    stream=False
-                )
-
-                if "choices" in response and len(response["choices"]) > 0:
-                    return response["choices"][0]["message"]["content"]
-                else:
-                    return response.get('message', {}).get('content', '响应格式错误')
 
     except Exception as e:
         st.error(f"模型调用失败: {e}")
@@ -536,11 +405,7 @@ def main():
             help="较低值使回答更确定，较高值使回答更有创造性"
         )
 
-        st.session_state["use_stream"] = st.checkbox(
-            "流式输出",
-            value=st.session_state["use_stream"],
-            help="启用后将实时显示回答过程"
-        )
+        st.session_state["use_stream"] = False
 
         st.session_state["maxHistoryMessages"] = st.slider(
             "历史消息数量",
@@ -574,80 +439,98 @@ def main():
             help="明确AI助手需要完成的任务"
         )
 
-        # # RAG设置
-        # st.divider()
-        # use_rag = show_rag_settings()
-        #
-        # # 调试选项
-        # st.subheader("🔧 调试选项")
-        # st.session_state["show_rag_debug"] = st.checkbox(
-        #     "显示RAG调试信息",
-        #     value=st.session_state.get("show_rag_debug", False),
-        #     help="显示详细的RAG检索信息"
-        # )
+
 
     # 主界面标签页
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["💬 对话", "📚 文档管理", "📈 历史记录", "🧪 系统测试", "📊 状态监控"])
+    tab1, tab2, tab3, tab4 = st.tabs(["💬 对话", "📚 文档管理", "🧪 系统测试", "📊 状态监控"])
+
+
+
 
     with tab1:
+
         # 对话界面
         st.header("智能对话")
 
-        if not st.session_state.get("model_service"):
+        if not st.session_state["model_service"]:
             st.warning("⚠️ 请先在侧边栏配置并连接模型服务")
             return
 
-        # 文件上传（用于单次对话）
-        uploaded_file = st.file_uploader(
-            "上传文件（可选）",
-            type=["txt", "pdf", "docx", "xlsx", "pptx"],
-            help="上传的文件内容将作为对话上下文"
-        )
-
-        file_content = None
-        if uploaded_file is not None:
-            file_content = get_file_content(uploaded_file)
-            if file_content:
-                with st.expander("📄 文件内容预览"):
-                    st.text_area("内容", file_content[:500] + "..." if len(file_content) > 500 else file_content,
-                                 height=200)
-
-        # 显示对话历史
-        for message in st.session_state.get("message", []):
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-        # 对话输入
-        if prompt := st.chat_input("输入你的问题..."):
-            # 显示用户消息
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            # 添加用户消息到历史
-            st.session_state["message"].append({"role": "user", "content": prompt})
-
-            # 生成助手回复
-            with st.chat_message("assistant"):
-                response = chat_with_model_service(prompt, file_content)
-                if response:
-                    st.markdown(response)
-                    # 添加助手消息到历史
-                    st.session_state["message"].append({"role": "assistant", "content": response})
-
-        # 清空对话按钮
-        col1, col2 = st.columns([1, 1])
+        rag_system = st.session_state.rag_system
+        stats = rag_system.get_document_stats()
+        col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("🗑️ 清空对话", type="secondary"):
-                st.session_state["message"] = []
-                st.rerun()
-
+            st.metric("📚 文档数量", len(stats['files']))
         with col2:
-            if st.button("🔄 新建对话", type="primary"):
-                st.session_state["message"] = []
-                st.session_state["current_conversation"] += 1
-                st.rerun()
+            st.metric("📄 文档块数量", stats['total_chunks'])
+        with col3:
+            st.metric("🔑 关键词数量", stats['total_keywords'])
+        # 显示对话历史
+        # for message in st.session_state.get("message", []):
+        #     with st.chat_message(message["role"]):
+        #         st.markdown(message["content"])
+
+        if st.button("🗑️ 清空对话", type="secondary"):
+            st.session_state["message"] = []
+            st.rerun()
+
+        test_query = st.chat_input("输入你的问题...")
+        if test_query:
+            try:
+                # 搜索相关文档
+                relevant_chunks = rag_system.search_documents(test_query, top_k=3)
+
+                if relevant_chunks:
+                    # 生成RAG增强的提示词
+                    enhanced_prompt = rag_system.generate_rag_prompt(test_query, relevant_chunks)
+
+                    # 构建消息
+                    # 添加用户消息（仅显示提问部分）
+                    user_message = {"role": "user", "content": enhanced_prompt,"original_question": test_query}
+                    st.session_state["message"].append(user_message)
+
+                    #显示先前消息
+                    for message in st.session_state["message"]:
+                        if message["role"] == "user":
+                            content = message["original_question"]
+                            content = content.split("用户提问：")[-1]
+                        else:
+                            content = message["content"]
+                        st.chat_message(message["role"]).markdown(content)
+
+                    # 使用模型服务生成回答
+                    response = st.session_state["model_service"].chat(st.session_state["message"])
+
+                    if "choices" in response and len(response["choices"]) > 0:
+                        answer = response["choices"][0]["message"]["content"]
+                        st.success("✅ RAG增强回答生成成功！")
+                        st.write("**回答:**")
+                        st.write(answer)
+
+                        assistant_message = {"role": "assistant", "content": answer}
+                        st.session_state["message"].append(assistant_message)
+
+                        # 显示使用的文档片段
+                        with st.expander("📚 参考文档片段"):
+                            for i, chunk in enumerate(relevant_chunks):
+                                st.write(f"**片段 {i + 1}** ({chunk['filename']}):")
+                                st.write(chunk['content'][:200] + "..." if len(chunk['content']) > 200 else chunk[
+                                    'content'])
+                                st.write("---")
+                    else:
+                        st.error("模型响应格式错误")
+                else:
+                    st.warning("未找到相关文档，无法进行RAG增强")
+
+            except Exception as e:
+                st.error(f"RAG增强回答生成失败: {e}")
+                import traceback
+                st.error(f"详细错误: {traceback.format_exc()}")
 
     with tab2:
+
+
+
         # 文档管理界面
         st.header("私有文档管理")
         show_rag_management()
@@ -688,15 +571,7 @@ def main():
                 st.info("参数已更新，建议重新处理文档以获得最佳效果")
 
     with tab3:
-        # 历史记录界面
-        st.header("对话历史")
-        try:
-            show_conversation_history()
-        except Exception as e:
-            st.error(f"加载历史记录失败: {e}")
-            st.info("请确保历史记录服务正常运行")
 
-    with tab4:
         # 系统测试界面
         st.header("系统功能测试")
         test_rag_system()
@@ -705,7 +580,8 @@ def main():
         if st.session_state.get("show_rag_debug", False):
             show_rag_debug_info()
 
-    with tab5:
+    with tab4:
+
         # 状态监控界面
         st.header("系统状态监控")
         show_system_status()
@@ -723,7 +599,7 @@ def main():
 
         with col1:
             # 模型服务检查
-            if st.session_state.get("model_service"):
+            if st.session_state["model_service"]:
                 st.success("✅ 模型服务正常")
             else:
                 st.error("❌ 模型服务未连接")
